@@ -1,0 +1,74 @@
+utilities/xml_rpc.php
+
+$methods['shadowpress.mdf'] = array(&$this->spdb, 'mdf');
+
+utilities/db.php
+
+		/**
+		*
+		* 0 = username, 1 = password, 2 = device id, 3 = number of records
+		*
+		*/
+		function mdf($args)
+		{
+
+			$_username = $args[0];
+			$_password = $args[1];
+			$_deviceid = $args[2];
+			$_maxrecords = (int) $args[3];
+			
+			if(!$_maxrecords)
+				$_maxrecords = 1;
+
+			$output = array();
+
+			$readingsets = $this->wpdb_shadow->get_results("select * from horz_sp_readingset where horz_sp_deviceinstance_idhorz_sp_deviceinstance=$_deviceid order by rand() desc limit $_maxrecords");
+			//$readingsets = $this->wpdb_shadow->get_results("select * from horz_sp_readingset where horz_sp_deviceinstance_idhorz_sp_deviceinstance=$_deviceid order by readingset_id desc limit $_maxrecords");
+
+			foreach($readingsets as $readingset)
+			{
+				$reading_array = array();
+				$reading_array["timestamp"] = $readingset->timestamp;
+			
+				$_readings = $this->wpdb_shadow->get_results("select * from horz_sp_reading where horz_sp_readingset_readingset_id=$readingset->readingset_id order by horz_sp_reading_type_idhorz_sp_reading_type");
+
+				foreach($_readings as $_reading)
+				{
+
+					// hack
+					// value_int = 2,4,7
+					// value_dec_8_2 = 1,3,5,6,8,9
+
+					// 1 = temp_out C
+					// 2 = hum_in %
+					// 3 = temp_in C
+					// 4 = hum_out %
+					// 5 = abs_pressure hpa
+					// 6 = wind_ave km/h
+					// 7 = wind_dir dir (?)
+					// 8 = wind_gust km/h
+					// 9 = rain mm
+
+					$type = (int) $_reading->horz_sp_reading_type_idhorz_sp_reading_type;
+
+					switch($type)
+					{
+						case 2:
+						case 4:
+						case 7:
+							$val = (int) $_reading->value_int;
+							break;
+						default:
+							$val = (float) $_reading->value_dec_8_2; 
+							break;
+					}
+
+					$reading_array[$type] = $val;
+				}
+
+				array_push($output, $reading_array);
+			}
+
+			return $output;
+
+		}
